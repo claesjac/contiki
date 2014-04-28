@@ -45,7 +45,7 @@ CONTIKI_CPU_DIRS = . ..
 CONTIKI_CPU_DIRS += ../../common/dbg-io
 
 ### CPU COMMON files
-CONTIKI_CPU_DIRS += ../../common/cmsis ../dev
+CONTIKI_CPU_DIRS += ../../cmsis ../dev
 
 
 ### CPU-dependent source files
