@@ -8,7 +8,7 @@
 #include "contiki.h"
 
 #include "rf233.h"
-#include "pmc.h"
+#include "halGpio.h"
 
 void
 rf233_arch_init(void)
@@ -17,60 +17,55 @@ rf233_arch_init(void)
 
 	RF233_SPI_TRANSFER_CLOSE();
 
-	SPI->SPI_CR |= SPI_CR_SPIDIS;
-	SPI->SPI_CR |= SPI_CR_SWRST;
+	  // Configure IO pins
+	  HAL_GPIO_PHY_SLP_TR_out();
+	  HAL_GPIO_PHY_SLP_TR_clr();
+	  HAL_GPIO_PHY_RST_out();
+	  HAL_GPIO_PHY_IRQ_in();
+	  HAL_GPIO_PHY_IRQ_pmuxen();
+	  HAL_GPIO_PHY_CS_out();
+	  HAL_GPIO_PHY_MISO_in();
+	  HAL_GPIO_PHY_MISO_pmuxen();
+	  HAL_GPIO_PHY_MOSI_out();
+	  HAL_GPIO_PHY_MOSI_pmuxen();
+	  HAL_GPIO_PHY_SCK_out();
+	  HAL_GPIO_PHY_SCK_pmuxen();
 
-	SPI->SPI_MR = SPI_MR_MSTR;
+	  // Configure SPI
+	  PORT->Group[HAL_GPIO_PORTC].PMUX[9].bit.PMUXE = PORT_PMUX_PMUXE_F_Val;  // SCK
+	  PORT->Group[HAL_GPIO_PORTC].PMUX[9].bit.PMUXO = PORT_PMUX_PMUXO_F_Val;  // MISO
+	  PORT->Group[HAL_GPIO_PORTB].PMUX[15].bit.PMUXE = PORT_PMUX_PMUXE_F_Val; // MOSI
 
-	SPI->SPI_MR &= (~SPI_MR_DLYBCS_Msk);
-	SPI->SPI_MR |= SPI_MR_DLYBCS( SPI_DLYBCS );
-	SPI->SPI_MR |= SPI_MR_MODFDIS;
-	SPI->SPI_MR &= ~SPI_MR_LLB;
-	SPI->SPI_MR |= SPI_MR_PCS(0xff);
+	  PM->APBCMASK.reg |= PM_APBCMASK_SERCOM4;
 
-	SPI->SPI_MR &= (~SPI_MR_PCS_Msk);
-	SPI->SPI_MR |= SPI_MR_PCS(~(1 << 0));
+	  GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(SERCOM4_GCLK_ID_CORE) |
+	      GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN(0);
 
-	//SPI->SPI_MR |= SPI_MR_WDRBT;
+	  SERCOM4->SPI.CTRLB.reg = SERCOM_SPI_CTRLB_RXEN;
+	  while (SERCOM4->SPI.SYNCBUSY.reg);
 
-	SPI->SPI_CSR[0] &= ~(SPI_CSR_DLYBS_Msk | SPI_CSR_DLYBCT_Msk | SPI_CSR_SCBR_Msk);
-	 SPI->SPI_CSR[0] |= SPI_CSR_SCBR(SPI_CLK_RATIO);
-	SPI->SPI_CSR[0] |= (SPI_CSR_DLYBS(SPI_DLYBS) | SPI_CSR_DLYBCT(SPI_DLYBCT) );
+	  SERCOM4->SPI.BAUD.reg = 0; /* MCK: 1M baud: 500 kHz */
 
-	/* Set Phase and Polarity */
-	SPI_CLK_POLARITY ? (SPI->SPI_CSR[0] |= SPI_CSR_NCPHA) : (SPI->SPI_CSR[0] &= (~SPI_CSR_NCPHA));
-	SPI_CLK_PHASE ? (SPI->SPI_CSR[0] |= SPI_CSR_CPOL) : (SPI->SPI_CSR[0] &= (~SPI_CSR_CPOL));
+	  SERCOM4->SPI.CTRLA.reg = SERCOM_SPI_CTRLA_ENABLE |
+	      SERCOM_SPI_CTRLA_MODE(SERCOM_SPI_CTRLA_MODE_SPI_MASTER_Val) |
+	      SERCOM_SPI_CTRLA_DIPO(0) | SERCOM_SPI_CTRLA_DOPO(1);
+	  while (SERCOM4->SPI.SYNCBUSY.reg);
 
-	/* Bit Quanity Sent */
-	SPI->SPI_CSR[0] &= (~SPI_CSR_BITS_Msk);
-	SPI->SPI_CSR[0] |= SPI_CSR_BITS_8_BIT;
-	/* CS Behavior */
-	//SPI->SPI_CSR[0] |= SPI_CSR_CSAAT;
-	//->SPI_CSR[0] |= SPI_CSR_CSNAAT;
-	/* Keep a fixed Periphial Select */
-	SPI->SPI_MR |= (SPI_MR_PS);
-	SPI->SPI_MR &= (~SPI_MR_PCSDEC);
-	SPI->SPI_CR |= SPI_CR_SPIEN;
 
 
 
 }
 void __attribute__((__interrupt__))
-SPI_Handler(void)
+SERCOM4_Handler(void)
 {
 	while(1){;}
 }
 
 uint8_t rf233_arch_write(uint8_t data)
 {
-	while(!(SPI->SPI_SR & SPI_SR_TDRE)){;}
-	SPI->SPI_TDR = (( SPI_TDR_PCS(~(1 << 0)) ) | SPI_TDR_TD(data));
-	/* endless loop until SPI complete */
-
-	while(!(SPI->SPI_SR & SPI_SR_RDRF)){;}
-//	while(SPI->SPI_SR && SPI_SR_TXEMPTY != 1){;}
-	data = SPI->SPI_RDR;
-
+	SERCOM4->SPI.DATA.reg = data;
+	while (!SERCOM4->SPI.INTFLAG.bit.RXC);
+	data = SERCOM4->SPI.DATA.reg;
 	return data;
 }
 

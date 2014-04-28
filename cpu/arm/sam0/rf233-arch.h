@@ -11,16 +11,20 @@
 #include "contiki.h"
 #include "dev/halGpio.h"
 
-#define RST_PIN		PIOA, 0
-#define SLPTR_PIN	PIOA, 20
-#define IRQ_PIN		PIOA, 24
+HAL_GPIO_PIN(PHY_RST,    B, 15);
+HAL_GPIO_PIN(PHY_IRQ,    B, 0);
+HAL_GPIO_PIN(PHY_SLP_TR, A, 20);
+HAL_GPIO_PIN(PHY_CS,     B, 31);
+HAL_GPIO_PIN(PHY_MISO,   C, 19);
+HAL_GPIO_PIN(PHY_MOSI,   B, 30);
+HAL_GPIO_PIN(PHY_SCK,    C, 18);
 
-#define rf233_arch_rst_high()
-#define rf233_arch_rst_low()
-#define rf233_arch_rst_state()
-#define rf233_arch_slptr_high()
-#define rf233_arch_slptr_low()
-#define rf233_arch_slptr_state()
+#define rf233_arch_rst_high()		HAL_GPIO_PHY_RST_set()
+#define rf233_arch_rst_low()		HAL_GPIO_PHY_RST_clr()
+#define rf233_arch_rst_state()		HAL_GPIO_PHY_RST_state()
+#define rf233_arch_slptr_high()		HAL_GPIO_PHY_SLP_TR_set()
+#define rf233_arch_slptr_low()		HAL_GPIO_PHY_SLP_TR_clr()
+#define rf233_arch_slptr_state()	HAL_GPIO_PHY_SLP_TR_state()
 
 #define SPI_CLK_POLARITY 0
 #define SPI_CLK_PHASE    1
@@ -30,8 +34,8 @@
 #define SPI_DLYBCT       0x04 //Delay between transfers
 #define SPI_DLYBCS		 0x0f //Delay between CS
 #if 1
-#define RF233_SPI_TRANSFER_OPEN()
-#define RF233_SPI_TRANSFER_CLOSE()
+#define RF233_SPI_TRANSFER_OPEN()	HAL_GPIO_PHY_CS_clr()
+#define RF233_SPI_TRANSFER_CLOSE()	HAL_GPIO_PHY_CS_set()
 #else
 #define RF233_SPI_TRANSFER_OPEN()	 	do{ \
 											SPI->SPI_MR &= (~SPI_MR_PCS_Msk); \

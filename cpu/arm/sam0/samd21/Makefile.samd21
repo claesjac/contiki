@@ -49,7 +49,7 @@ CONTIKI_CPU_DIRS += ../../cmsis ../dev
 
 
 ### CPU-dependent source files
-CONTIKI_TARGET_SOURCEFILES += rtimer-arch-tc4.c watchdog.c clock.c debug-uart.c cpu.c
+CONTIKI_TARGET_SOURCEFILES += rtimer-arch-tc4.c watchdog.c clock.c debug-uart.c cpu.c rf233-arch.c
 
 DEBUG_IO_SOURCEFILES += dbg-printf.c dbg-putchar.c dbg-puts.c dbg-snprintf.c dbg-sprintf.c strformat.c
 

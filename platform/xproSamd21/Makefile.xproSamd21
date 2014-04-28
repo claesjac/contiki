@@ -24,7 +24,7 @@ CONTIKI_CPU=$(CONTIKI_CPU_ARM)/sam0/samd21
 include $(CONTIKI_CPU)/Makefile.samd21
 
 MODULES += core/net core/net/ipv6 core/net/mac core/net/ip \
-           core/net/rpl core/net/rime core/net/mac/sicslowmac
+           core/net/rpl core/net/rime core/net/mac/sicslowmac dev/rf233
 
 # JTAG program upload
 OPENOCD	 = openocd
