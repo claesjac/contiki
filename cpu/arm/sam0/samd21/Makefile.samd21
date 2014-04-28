@@ -1,0 +1,105 @@
+CC      = arm-none-eabi-gcc
+CPP     = arm-none-eabi-cpp
+LD      = arm-none-eabi-gcc
+AR      = arm-none-eabi-ar
+OBJCOPY = arm-none-eabi-objcopy
+NM      = arm-none-eabi-nm
+
+ifndef SOURCE_LDSCRIPT
+SOURCE_LDSCRIPT = $(CONTIKI_CPU)/samd21.lds
+endif
+
+LDSCRIPT = $(OBJECTDIR)/samd21.ld
+
+SAMCFLAGS += -mcpu=cortex-m0plus -mthumb -mlittle-endian -g3
+SAMCFLAGS += -ffunction-sections -fdata-sections
+SAMCFLAGS += -fshort-enums -fomit-frame-pointer -fno-strict-aliasing
+SAMCFLAGS += -Wall -D__SAMD21J18A__
+
+CFLAGS += $(SAMCFLAGS)
+LDFLAGS += -mcpu=cortex-m0plus -mthumb -nostartfiles
+LDFLAGS += -T $(LDSCRIPT)
+LDFLAGS += -g3 -Wl,--gc-sections,--sort-section=alignment
+LDFLAGS += -Wl,-Map=$(@:.elf=-$(TARGET).map),--cref,--no-warn-mismatch
+OBJCOPY_FLAGS += -O binary --gap-fill 0xff
+
+### Are we building with code size optimisations?
+ifeq ($(SMALL),1)
+  SAMCFLAGS += -O0
+else
+  SAMCFLAGS += -O0
+endif
+
+### If the user-specified a Node ID, pass a define
+ifdef NODEID
+  CFLAGS += -DIEEE_ADDR_NODE_ID=$(NODEID)
+endif
+
+### CPU-dependent cleanup files
+CLEAN += symbols.c symbols.h *.d *.elf *.hex
+
+### CPU-dependent directories
+CONTIKI_CPU_DIRS = . ..
+
+### Use the existing debug I/O in cpu/arm/common
+CONTIKI_CPU_DIRS += ../../common/dbg-io
+
+### CPU COMMON files
+CONTIKI_CPU_DIRS += ../../common/cmsis ../dev
+
+
+### CPU-dependent source files
+CONTIKI_TARGET_SOURCEFILES += rtimer-arch-tc4.c watchdog.c clock.c debug-uart.c cpu.c
+
+DEBUG_IO_SOURCEFILES += dbg-printf.c dbg-putchar.c dbg-puts.c dbg-snprintf.c dbg-sprintf.c strformat.c
+
+#USB_CORE_SOURCEFILES += usb-core.c cdc-acm.c
+#USB_ARCH_SOURCEFILES += usb-arch.c usb-serial.c cdc-acm-descriptors.c
+
+CONTIKI_SOURCEFILES += $(DEBUG_IO_SOURCEFILES) $(CONTIKI_CPU_SOURCEFILES)
+#CONTIKI_SOURCEFILES += $(USB_CORE_SOURCEFILES) $(USB_ARCH_SOURCEFILES)
+
+TARGET_START_SOURCEFILES += startup_samd21.c system_samd21.c ieee-addr.c
+TARGET_START_OBJECTFILES = ${addprefix $(OBJECTDIR)/,${call oname, $(TARGET_START_SOURCEFILES)}}
+
+### Don't treat the .elf as intermediate
+.PRECIOUS: %.elf %.hex %.bin
+
+### Always re-build ieee-addr.o in case the command line passes a new NODEID
+FORCE:
+
+$(OBJECTDIR)/ieee-addr.o: ieee-addr.c FORCE | $(OBJECTDIR)
+	$(TRACE_CC)
+	$(Q)$(CC) $(CFLAGS) -c $< -o $@
+
+### Compilation rules
+CUSTOM_RULE_LINK=1
+
+
+%.elf: $(ATMEL_ASF_OBJECTFILES) $(TARGET_START_OBJECTFILES) %.co $(PROJECT_OBJECTFILES) $(PROJECT_LIBRARIES) contiki-$(TARGET).a $(LDSCRIPT)
+	$(TRACE_LD)
+	$(Q)$(LD) $(LDFLAGS) ${filter-out $(LDSCRIPT) %.a,$^} ${filter %.a,$^} $(TARGET_LIBFILES) -o $@
+
+
+%.hex: %.elf
+	$(OBJCOPY) -O ihex $< $@
+
+%.bin: %.elf
+	$(OBJCOPY) $(OBJCOPY_FLAGS) $< $@
+
+### We don't really need the .hex and .bin for the .$(TARGET) but let's make
+### sure they get built
+%.$(TARGET): %.elf %.hex %.bin
+	cp $< $@
+
+### This rule is used to generate the correct linker script
+LDGENFLAGS += $(addprefix -D,$(subst $(COMMA), ,$(DEFINES)))
+LDGENFLAGS += $(addprefix -I,$(SOURCEDIRS))
+LDGENFLAGS += -imacros "contiki-conf.h"
+LDGENFLAGS += -D__SAM4E16E__
+LDGENFLAGS += -x c -P -E
+
+# NB: Assumes LDSCRIPT was not overridden and is in $(OBJECTDIR)
+$(LDSCRIPT): $(SOURCE_LDSCRIPT) FORCE | $(OBJECTDIR)
+	$(TRACE_CC)
+	$(Q)$(CC) $(LDGENFLAGS) $< -o $@

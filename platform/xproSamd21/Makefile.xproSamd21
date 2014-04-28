@@ -1,0 +1,45 @@
+# derived from cc2538dk pla tform makefile
+# xpro G53 platform makefile
+ifndef CONTIKI
+  $(error CONTIKI not defined! You must specify where CONTIKI resides!)
+endif
+
+CONTIKI_TARGET_DIRS = . dev
+
+CONTIKI_TARGET_SOURCEFILES += contiki-main.c serial-line.c board.c xpro-sensors.c button-sensor.c
+
+CONTIKI_SOURCEFILES += $(CONTIKI_TARGET_SOURCEFILES)
+
+CLEAN += *.xplainPro
+
+### Unless the example dictates otherwise, build with code size optimisations
+ifndef SMALL
+  SMALL = 0
+endif
+
+### Define the CPU directory
+CONTIKI_CPU_ARM=$(CONTIKI)/cpu/arm
+CONTIKI_CPU_ARM_COMMON=$(CONTIKI_CPU_ARM)/common
+CONTIKI_CPU=$(CONTIKI_CPU_ARM)/sam0/samd21
+include $(CONTIKI_CPU)/Makefile.samd21
+
+MODULES += core/net core/net/ipv6 core/net/mac core/net/ip \
+           core/net/rpl core/net/rime core/net/mac/sicslowmac
+
+# JTAG program upload
+OPENOCD	 = openocd
+OPENOCD_DIR = usr/local/share/openocd/
+OPENOCD_CFG = board/atmel_samd21_xplained_pro.cfg
+%.halt: %.elf
+	$(OPENOCD) -s $(OPENOCD_DIR) -f $(OPENOCD_CFG) -c "reset halt"
+	
+%.upload: %.elf
+	$(OPENOCD) -s $(OPENOCD_DIR) -f $(OPENOCD_CFG) -c "program $< reset"
+	
+#$(OPENOCD) -s $(OPENOCD_DIR) -f $(OPENOCD_CFG) -c init -c "reset halt;sleep 250;program $<;reset halt;resume;sleep 500;exit"
+
+
+#$(OPENOCD) -s $(OPENOCD_DIR) -f $(OPENOCD_CFG) -c init -c "reset halt;sleep 250;flash probe 0;stm32x mass_erase 0; sleep 500;flash write_bank 0 $< 0;reset halt;resume;sleep 500;exit"
+
+ocd_reset:
+	$(OPENOCD) -s $(OPENOCD_DIR) -f $(OPENOCD_CFG) -c init -c "reset halt;resume" -c exit
