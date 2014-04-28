@@ -34,17 +34,17 @@ rtimer_arch_init(void)
 	      TC_CTRLA_WAVEGEN(TC_CTRLA_WAVEGEN_MFRQ_Val) |
 	      TC_CTRLA_PRESCALER(TC_CTRLA_PRESCALER_DIV256) |
 	      TC_CTRLA_PRESCSYNC(TC_CTRLA_PRESCSYNC_PRESC_Val);
-
 	  while (TC4->COUNT16.STATUS.bit.SYNCBUSY);
+
 	  TC4->COUNT16.COUNT.reg = 0;
-
 	  while (TC4->COUNT16.STATUS.bit.SYNCBUSY);
+
 	  TC4->COUNT16.CC[0].reg = RTIMER_ARCH_TOP;
-
 	  while (TC4->COUNT16.STATUS.bit.SYNCBUSY);
+
 	  TC4->COUNT16.CTRLA.reg |= TC_CTRLA_ENABLE;
-
 	  while (TC4->COUNT16.STATUS.bit.SYNCBUSY);
+
 	  TC4->COUNT16.INTENSET.reg = TC_INTENSET_MC0;
 
 	  NVIC_EnableIRQ(TC4_IRQn);
@@ -73,12 +73,13 @@ rtimer_arch_schedule(rtimer_clock_t t)
 	  if (t > RTIMER_ARCH_TOP) {
 		  t -= RTIMER_ARCH_TOP;
 	  }
-	  while (TC4->COUNT16.STATUS.bit.SYNCBUSY);
+
 	  TC4->COUNT16.CC[0].reg = t;
-
-
 	  while (TC4->COUNT16.STATUS.bit.SYNCBUSY);
+
+
 	  TC4->COUNT16.INTENSET.reg = TC_INTENSET_MC1;
+	  while (TC4->COUNT16.STATUS.bit.SYNCBUSY);
 
 	  INTERRUPTS_ENABLE();
 
@@ -133,9 +134,7 @@ TC4_Handler()
 	  rtimer_run_next();
 
 	  if(next_trigger == NULL) {
-		  while (TC4->COUNT16.STATUS.bit.SYNCBUSY);
-			  TC4->COUNT16.INTENCLR.reg = TC_INTENCLR_MC1;
-
+		TC4->COUNT16.INTENCLR.reg = TC_INTENCLR_MC1;
 	  }
   }
   ENERGEST_OFF(ENERGEST_TYPE_IRQ);
